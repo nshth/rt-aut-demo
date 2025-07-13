@@ -1,0 +1,7 @@
+POST http://localhost:8000/check-stock
+Content-Type: application/json
+
+{
+  "sku": "106",
+  "quantity": 2
+}
