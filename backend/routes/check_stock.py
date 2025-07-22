@@ -8,12 +8,12 @@ router = APIRouter()
 
 @router.post('/check-stock')
 def check_stock(data: Stockrequest, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.sku == data.sku).first()
+    product = db.query(Product).filter(Product.name.ilike(f"%{data.productName.strip()}%")).first()
 
     if not product:
-        raise HTTPException(status_code=404, detail="product not found")
+        raise HTTPException(status_code=404, detail="Product not found")
     
-    return{
+    return {
         "sku": product.sku,
         "name": product.name,
         "available": product.quantity_available,

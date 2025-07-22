@@ -9,3 +9,4 @@ class Product(Base):
     name = Column(String)
     quantity_available = Column(Integer)
     price = Column(Numeric(10, 2))
+

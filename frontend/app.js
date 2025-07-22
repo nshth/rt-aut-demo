@@ -1,7 +1,7 @@
 
         window.ChatWidgetConfig = {
             webhook: {
-                url: 'https://nshth.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat',
+                url: 'https://rashhh.app.n8n.cloud/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat',
                 route: 'general'
             },
             branding: {

@@ -1,7 +1,7 @@
-POST http://localhost:8000/check-stock
+POST https://03fd395da7a4.ngrok-free.app/check-stock
 Content-Type: application/json
 
 {
-  "sku": "106",
-  "quantity": 2
+  "productName": "Laptop Stand",
+  "quantity": "2"
 }
