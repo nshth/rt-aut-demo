@@ -1,7 +1,5 @@
-POST https://03fd395da7a4.ngrok-free.app/check-stock
+POST  https://dfa07470a06e.ngrok-free.app/check-stock
 Content-Type: application/json
 
-{
-  "productName": "Laptop Stand",
-  "quantity": "2"
-}
+{"productName": "Bluetooth Speaker", "quantity": "1"}
+

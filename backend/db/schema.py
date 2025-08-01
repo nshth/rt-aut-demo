@@ -9,13 +9,11 @@ class Productresponce(Stockrequest):
 
 class InvoiceRequest(BaseModel):
     customer_name: str
-    customer_contact: int
+    customer_contact: str
     customer_address: str
-    sku: str
-    quantity: str
-    price: int
+    sku: int
+    product_name: str
+    quantity_needed: int
+    total_price: int
 
-class Calculatetotal(BaseModel):
-    sku: str
-    quantity: str
-    price: int
+
