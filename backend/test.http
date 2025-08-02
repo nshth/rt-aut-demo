@@ -1,5 +1,12 @@
-POST  https://dfa07470a06e.ngrok-free.app/check-stock
+# POST  https://dfa07470a06e.ngrok-free.app/check-stock
+# Content-Type: application/json
+
+# {"productName": "Bluetooth Speaker", "quantity": "1"}
+
+POST  http://127.0.0.1:8000/update-stock
 Content-Type: application/json
 
-{"productName": "Bluetooth Speaker", "quantity": "1"}
-
+{
+"sku": "106",
+"quantity_needed": 2
+}

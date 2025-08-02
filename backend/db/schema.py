@@ -16,4 +16,6 @@ class InvoiceRequest(BaseModel):
     quantity_needed: int
     total_price: int
 
-
+class stockUpdate(BaseModel):
+    sku:str
+    quantity_needed: int

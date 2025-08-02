@@ -35,3 +35,5 @@ def generate_invoice(data: InvoiceRequest):
         headers={"Content-Disposition": f"attachment; filename=invoice.pdf"}
     )
 
+# add date and time
+# add uuid
