@@ -1,12 +1,18 @@
-# POST  https://dfa07470a06e.ngrok-free.app/check-stock
+POST https://2d142d015fb8.ngrok-free.app/get_sku?productName=Bluetooth%20Speaker
+
+Content-Type: application/json
+
+# {"productName": "Bluetooth Speaker"}
+
+# POST  https://8462a2a03227.ngrok-free.app/check-stock
 # Content-Type: application/json
 
 # {"productName": "Bluetooth Speaker", "quantity": "1"}
 
-POST  http://127.0.0.1:8000/update-stock
-Content-Type: application/json
+# POST   https://8462a2a03227.ngrok-free.app/update-stock
+# Content-Type: application/json
 
-{
-"sku": "106",
-"quantity_needed": 2
-}
+# {
+# "sku": "106",
+# "quantity_needed": 2
+# }

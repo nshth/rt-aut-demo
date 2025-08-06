@@ -21,3 +21,5 @@ def check_stock(data: Stockrequest, db: Session = Depends(get_db)):
         "in_stock": product.quantity_available >= data.quantity
     }
 
+
+
