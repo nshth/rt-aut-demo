@@ -19,3 +19,7 @@ class InvoiceRequest(BaseModel):
 class stockUpdate(BaseModel):
     sku:str
     quantity_needed: int
+
+class ChatRequest(BaseModel):
+    sessionId: str
+    message: str

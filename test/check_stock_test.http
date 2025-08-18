@@ -1,0 +1,7 @@
+POST http://127.0.0.1:8000/chat
+Content-Type: application/json
+
+{
+  "sessionId": "test123",
+  "message": "2 laptop stand"
+}

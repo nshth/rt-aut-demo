@@ -1,0 +1,7 @@
+POST  http://127.0.0.1:8000/check-stock
+Content-Type: application/json
+
+{
+"productName": "Laptop Stand",
+"quantity": 2
+}

@@ -4,3 +4,7 @@ sqlalchemy
 psycopg2-binary
 pydantic
 python-dotenv
+langchain
+langchain-groq
+langchain-community
+httpx
