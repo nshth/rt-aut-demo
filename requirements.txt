@@ -8,3 +8,6 @@ langchain
 langchain-groq
 langchain-community
 httpx
+yagmail 
+gspread 
+google-auth-oauthlib

@@ -3,5 +3,5 @@ Content-Type: application/json
 
 {
   "sessionId": "test123",
-  "message": "2 laptop stand"
+  "message": "hey"
 }

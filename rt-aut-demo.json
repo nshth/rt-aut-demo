@@ -1,0 +1,1327 @@
+{
+  "name": "rt-aut-demo",
+  "nodes": [
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 30
+      },
+      "id": "a5c10357-6034-4983-a248-c9c650beeb05",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "position": [
+        48,
+        224
+      ],
+      "typeVersion": 1.2
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "5b8a0076-cecb-4299-88df-177ae3e9ff49",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        400,
+        32
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {
+          "allowedOrigins": "*",
+          "responseMode": "responseNode"
+        }
+      },
+      "id": "885b512d-aec9-47fd-bfac-db6ffc649e14",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "position": [
+        -880,
+        48
+      ],
+      "webhookId": "f406671e-c954-4691-b39a-66c90aa2f103",
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "=your job is to extract product name and quantity and return as json to check_stock:\n\ncheck_stock tool: Use this tool to check the availability and price of a product. This tool ONLY accepts JSON. You MUST provide the productName and quantity. Dont provide any other input.\n\nreply to the queries based on the information you got from from check_stock. first tell that the product is availabl or not then the price \n\nthe price mentioned in the information is for one unit so multiply it by the quantity they want and add 500 as delivery and tell that total amount to them and ask they want to confirm order\n\nonce they confirmed order ask for their Name, conatct, address and send these following details with the provided data type to the inv_tool tool as json:\n    customer_name: str\n    customer_contact: str\n    customer_address: str\n    product_name: str\n    quantity_needed: int\n    total_price: int\n\nafter you call the inv_tool and send the email succesfully, make sure to let the customer know it. and send them a thank you message politely and ask if they want to order anything else.\nand at the same time go with the workflow of making a delivery sheet with that informations\n"
+        }
+      },
+      "id": "afc05dcb-b7ab-40e6-926c-dfec974330b7",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        -32,
+        32
+      ],
+      "typeVersion": 1.6
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "158a0b91-534d-4745-b10e-8a7c97050861",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.chatInput }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "c613e1c3-888c-418d-9911-c7cb7b922344",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        -656,
+        48
+      ],
+      "typeVersion": 2.2
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"output\": \"Hi, Im Nasha, what you want to order maam/sir?\"\n}",
+        "options": {}
+      },
+      "id": "4b2e9860-2111-46e1-abf9-616e92ece008",
+      "name": "Respond With Initial Message",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [
+        -448,
+        208
+      ],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "model": "deepseek-r1-distill-llama-70b",
+        "options": {
+          "maxTokensToSample": 2000,
+          "temperature": 0.7
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        224
+      ],
+      "id": "9abad894-20b0-45aa-a22e-302283300f80",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "ZCDLHXB8LB0mZJAy",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Makes an HTTP request and returns the response Call this tool to check the order availability using the provided product name and quantity. Ensure you get:\n- product name,\n- the desired quantity.\n\nWhen checking availability, always send the request as a JSON object.\nOnly call this tool after the customer has provided product name and quantity.\n",
+        "method": "POST",
+        "url": "https://d7a491396f62.ngrok-free.app/check-stock",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $fromAI('JSON', ``, 'json') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        256,
+        224
+      ],
+      "id": "36511984-5638-4248-8fe0-9f240d4aa7ba",
+      "name": "check stock"
+    },
+    {
+      "parameters": {
+        "description": "call this tool once the order is confirmed. with the needed informations",
+        "source": "=database",
+        "workflowId": {
+          "__rl": true,
+          "value": "5w7zIJoQqi7yr0Cb",
+          "mode": "list",
+          "cachedResultName": "rt-aut-demo"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_name": "={{ $fromAI('customer_name', ``, 'string') }}",
+            "customer_contact": "={{ $fromAI('customer_contact', ``, 'string') }}",
+            "customer_address": "={{ $fromAI('customer_address', ``, 'string') }}",
+            "product_name": "={{ $fromAI('product_name', ``, 'string') }}",
+            "quantity_needed": "={{ $fromAI('quantity_needed', ``, 'number') }}",
+            "total_price": "={{ $fromAI('total_price', ``, 'number') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "customer_contact",
+              "displayName": "customer_contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "customer_address",
+              "displayName": "customer_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number",
+              "removed": true
+            },
+            {
+              "id": "product_name",
+              "displayName": "product_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "quantity_needed",
+              "displayName": "quantity_needed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            },
+            {
+              "id": "total_price",
+              "displayName": "total_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "number"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        160,
+        224
+      ],
+      "id": "c3eed4b0-88c7-445b-a9b5-e7865e97cafb",
+      "name": "inv_tool"
+    },
+    {
+      "parameters": {
+        "sendTo": "rashahaneefa0@gmail.com",
+        "subject": "You got an Order!!",
+        "emailType": "text",
+        "message": "Here is the order pdf,",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "invoice"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        496
+      ],
+      "id": "6c64dc74-ed14-4e36-a5a5-76b44afdec4c",
+      "name": "Send a message",
+      "webhookId": "4b99247e-0fe3-42c8-9877-331af0df32b9",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "o2cQyupdzYpOGDJc",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "\n{\n\"customer_name\": \n\"Amina Farook\",\n\"customer_contact\": \n\"0778456231\",\n\"customer_address\": \n\"No. 12, Jasmine Lane, Kandy 2\",\n\"product_name\": \n\"Laptop Stand\",\n\"quantity_needed\": \n2,\n\"total_price\": \n5498\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1504,
+        816
+      ],
+      "id": "c00f5f4e-af26-4d18-8ec9-89e38fa21f6c",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d81341a6-0b39-440c-a40e-0fc301b3a2ed",
+              "name": "date",
+              "value": "={{ $now.format('dd/MM/yyyy') }}",
+              "type": "string"
+            },
+            {
+              "id": "70e6f3d0-896c-4a37-8b20-1cc5e9468d65",
+              "name": "sheetName",
+              "value": "={{ 'Delivery Sheet ' + $now.format('dd/MM/yyyy') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -560,
+        816
+      ],
+      "id": "e565436d-28b5-4acb-954a-f4021373d207",
+      "name": "date & sheet name"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b8bc7ab7-d6b7-4f6c-8c25-01670df0d1e4",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "={{ 'Delivery Sheet ' + $now.format('dd/MM/yyyy') }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": false
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        32,
+        816
+      ],
+      "id": "bb9830ee-46c2-4198-a512-81f1f803a4b0",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = items[0].json;\n\nif (result && result.name) {\n  return [{ json: { name: result.name, id: result.id } }];\n} else {\n  return [{ json: { name: \"not exist\" } }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        816
+      ],
+      "id": "d6711013-bd49-41a2-a94a-cee050a4b5ef",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d81341a6-0b39-440c-a40e-0fc301b3a2ed",
+              "name": "date",
+              "value": "={{ $now.format('dd/MM/yyyy') }}",
+              "type": "string"
+            },
+            {
+              "id": "70e6f3d0-896c-4a37-8b20-1cc5e9468d65",
+              "name": "sheetName",
+              "value": "={{ 'Delivery Sheet ' + $now.format('dd/MM/yyyy') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        1040
+      ],
+      "id": "1c1d1ced-87f4-4e6e-a0cc-0d41c18980a7",
+      "name": "date & sheet name1"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "={{ $json.sheetName }}",
+        "limit": 1,
+        "filter": {
+          "driveId": {
+            "mode": "list",
+            "value": "My Drive"
+          },
+          "whatToSearch": "files"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -352,
+        816
+      ],
+      "id": "5c76f1fd-14a9-4c51-8b05-1c580c4f43c7",
+      "name": "Search files and folders",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "heo3sFfgOx5WAQT3",
+          "name": "Google Drive account 5"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://d7a491396f62.ngrok-free.app/create-invoice",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=customer_name",
+              "value": "={{ $json.customer_name }}"
+            },
+            {
+              "name": "customer_contact",
+              "value": "={{ $json.customer_contact }}"
+            },
+            {
+              "name": "customer_address",
+              "value": "={{ $json.customer_address }}"
+            },
+            {
+              "name": "sku",
+              "value": "={{ $json.sku }}"
+            },
+            {
+              "name": "product_name",
+              "value": "={{ $json.product_name }}"
+            },
+            {
+              "name": "quantity_needed",
+              "value": "={{ $json.quantity_needed }}"
+            },
+            {
+              "name": "total_price",
+              "value": "={{ $json.total_price }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "invoice"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        496
+      ],
+      "id": "4edf75c3-6dfe-4a79-8fc1-2660e38fab41",
+      "name": "create-invoice"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://d7a491396f62.ngrok-free.app/update-stock",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=sku",
+              "value": "={{ $json.sku }}"
+            },
+            {
+              "name": "quantity_needed",
+              "value": "={{ $json.quantity_needed }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        1168
+      ],
+      "id": "c31ad717-c286-451c-82b4-51d8d7e6401b",
+      "name": "update_stock"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1f1ccf94-c261-4647-a701-5d6706b1df45",
+              "name": "product_name",
+              "value": "={{ $node[\"When Executed by Another Workflow\"].json.product_name }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1280,
+        816
+      ],
+      "id": "f17ca6d0-6bcc-419c-abca-1591a937c4c2",
+      "name": "ext product name"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://d7a491396f62.ngrok-free.app/get_sku",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "productName",
+              "value": "={{ $json.product_name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1072,
+        816
+      ],
+      "id": "37c88688-e1bb-4956-8595-14732463655e",
+      "name": "get_sku"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a97b4d27-dcd4-4deb-94fe-9bcb6cef1209",
+              "name": "customer_name",
+              "value": "={{ $node[\"order_data\"].json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "419c9678-d2a7-4e75-b66d-66e1114945c2",
+              "name": "customer_contact",
+              "value": "={{ $node[\"order_data\"].json.customer_contact }}",
+              "type": "string"
+            },
+            {
+              "id": "f1f63b16-c00a-438e-8e8f-610eb9eef9e4",
+              "name": "customer_address",
+              "value": "={{ $node[\"order_data\"].json.customer_address }}",
+              "type": "string"
+            },
+            {
+              "id": "bee69a94-0e53-413f-ac21-a55fe26a2237",
+              "name": "sku",
+              "value": "={{ $node[\"order_data\"].json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "e650fb04-2ca8-4730-a4e4-810a205e417d",
+              "name": "product_name",
+              "value": "={{ $node[\"order_data\"].json.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c7a472e6-1128-4765-8a77-d51a70eeaf3a",
+              "name": "quantity_needed",
+              "value": "={{ $node[\"order_data\"].json.quantity_needed }}",
+              "type": "number"
+            },
+            {
+              "id": "17444aa2-448d-480a-afe9-76d04595d997",
+              "name": "total_price",
+              "value": "={{ $node[\"order_data\"].json.total_price }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -560,
+        496
+      ],
+      "id": "8939d091-cb4e-404d-8c52-713bd091b026",
+      "name": "invoice_data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "93b80e52-93a9-4d76-9ac6-b54bf613c9fc",
+              "name": "customer_name",
+              "value": "={{ $('When Executed by Another Workflow').item.json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "e2c21e8e-6fc3-477c-9317-fe5bb667a45d",
+              "name": "customer_contact",
+              "value": "={{ $('When Executed by Another Workflow').item.json.customer_contact }}",
+              "type": "string"
+            },
+            {
+              "id": "5b5772d7-1444-4840-85e5-01312c7aa1eb",
+              "name": "customer_address",
+              "value": "={{ $('When Executed by Another Workflow').item.json.customer_address }}",
+              "type": "string"
+            },
+            {
+              "id": "f048af4a-e367-47fe-8214-61be4b8259a2",
+              "name": "sku",
+              "value": "={{ $json.SKU }}",
+              "type": "string"
+            },
+            {
+              "id": "924fbb7f-7025-4acd-bb0a-e2459f2f4b8b",
+              "name": "product_name",
+              "value": "={{ $('When Executed by Another Workflow').item.json.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "a9b8ce0b-97e1-475a-9fb0-1907b2c6e39b",
+              "name": "quantity_needed",
+              "value": "={{ $('When Executed by Another Workflow').item.json.quantity_needed }}",
+              "type": "string"
+            },
+            {
+              "id": "0e7270c6-ef0d-45d0-a175-3ad79f74145c",
+              "name": "total_price",
+              "value": "={{ $('When Executed by Another Workflow').item.json.total_price }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -880,
+        816
+      ],
+      "id": "3a14f3f1-8b74-4422-bfa7-56421771fa25",
+      "name": "order_data"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d15eb055-fb26-422c-895e-e5b3554fceae",
+              "name": "customer_name",
+              "value": "={{ $('order_data').item.json.customer_name }}",
+              "type": "string"
+            },
+            {
+              "id": "419c9678-d2a7-4e75-b66d-66e1114945c2",
+              "name": "customer_contact",
+              "value": "={{ $('order_data').item.json.customer_contact }}",
+              "type": "string"
+            },
+            {
+              "id": "f1f63b16-c00a-438e-8e8f-610eb9eef9e4",
+              "name": "customer_address",
+              "value": "={{ $('order_data').item.json.customer_address }}",
+              "type": "string"
+            },
+            {
+              "id": "bee69a94-0e53-413f-ac21-a55fe26a2237",
+              "name": "sku",
+              "value": "={{ $('order_data').item.json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "e650fb04-2ca8-4730-a4e4-810a205e417d",
+              "name": "product_name",
+              "value": "={{ $('order_data').item.json.product_name }}",
+              "type": "string"
+            },
+            {
+              "id": "c7a472e6-1128-4765-8a77-d51a70eeaf3a",
+              "name": "quantity_needed",
+              "value": "={{ $('order_data').item.json.quantity_needed }}",
+              "type": "string"
+            },
+            {
+              "id": "17444aa2-448d-480a-afe9-76d04595d997",
+              "name": "total_price",
+              "value": "={{ $('order_data').item.json.total_price }}",
+              "type": "string"
+            },
+            {
+              "id": "b9f8343c-c1bf-4d49-8fed-1bb76eb1508e",
+              "name": "date",
+              "value": "={{ $('date & sheet name').item.json.date }}",
+              "type": "string"
+            },
+            {
+              "id": "e848e8a4-2da2-4b80-afb0-69bff12b112b",
+              "name": "spreadsheetId",
+              "value": "={{ $json.spreadsheetId ?? $('Code').item.json.id ?? 'fallback-id' }}\n",
+              "type": "string"
+            },
+            {
+              "id": "704aa7b2-f12b-4a60-aa5a-486f92c5d559",
+              "name": "sheets title",
+              "value": "={{ $('date & sheet name').item.json.date }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        800
+      ],
+      "id": "14d8dfbd-7d75-46db-b434-3489637b5fd7",
+      "name": "delivery_data"
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "={{ $json.sheetName }}",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "={{ $json.date }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        416,
+        1040
+      ],
+      "id": "ae989d9d-209b-46f0-80a5-58fcefac8d9e",
+      "name": "Create deliverysheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GsIqxzfk6FbvJFYr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.spreadsheetId }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json['sheets title'] }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_contact",
+              "displayName": "customer_contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "customer_address",
+              "displayName": "customer_address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sku",
+              "displayName": "sku",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "product_name",
+              "displayName": "product_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "quantity_needed",
+              "displayName": "quantity_needed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_price",
+              "displayName": "total_price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spreadsheetId",
+              "displayName": "spreadsheetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sheets title",
+              "displayName": "sheets title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        816,
+        800
+      ],
+      "id": "2d74a845-3b88-4df9-b182-5daf97a74214",
+      "name": "Append row in delivery sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "GsIqxzfk6FbvJFYr",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8f4aec2b-a1c9-47da-9627-ec5bb4210e97",
+              "name": "sku",
+              "value": "={{ $json.sku }}",
+              "type": "string"
+            },
+            {
+              "id": "29f58f33-109f-467c-86e3-e21cc1d24627",
+              "name": "quantity_needed",
+              "value": "={{ $node[\"order_data\"].json.quantity_needed }}\n",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -544,
+        1168
+      ],
+      "id": "6f0a773f-4aa2-4bb6-8339-8e5cd07baf63",
+      "name": "stock update data"
+    },
+    {
+      "parameters": {
+        "height": 240,
+        "width": 672
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        416
+      ],
+      "typeVersion": 1,
+      "id": "6736e663-8e7e-4c65-a09e-ef1c1e2d2559",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "height": 240,
+        "width": 368
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        192,
+        960
+      ],
+      "typeVersion": 1,
+      "id": "8d4c18e7-8b7a-4aa4-9e2b-61a1ad0e7e0e",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "height": 240,
+        "width": 368
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        608,
+        720
+      ],
+      "typeVersion": 1,
+      "id": "614c486b-f355-4e64-b6a9-aca429909dd8",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "height": 240,
+        "width": 432
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        1088
+      ],
+      "typeVersion": 1,
+      "id": "595097d9-3f95-4b77-99ca-7593e1471b43",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "height": 240,
+        "width": 624
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -608,
+        736
+      ],
+      "typeVersion": 1,
+      "id": "78f2945a-980f-4833-94f2-75e41504af17",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "height": 432,
+        "width": 480
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -128,
+        -80
+      ],
+      "typeVersion": 1,
+      "id": "c92c485a-a549-4ee9-9682-d9426e5cc40f",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "height": 224,
+        "width": 624
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1328,
+        736
+      ],
+      "typeVersion": 1,
+      "id": "d068a33a-732d-4ffe-b985-b3cc916c157d",
+      "name": "Sticky Note6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond With Initial Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check stock": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "inv_tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "ext product name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "date & sheet name": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "delivery_data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "date & sheet name1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "date & sheet name1": {
+      "main": [
+        [
+          {
+            "node": "Create deliverysheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create-invoice": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ext product name": {
+      "main": [
+        [
+          {
+            "node": "get_sku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_sku": {
+      "main": [
+        [
+          {
+            "node": "order_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "invoice_data": {
+      "main": [
+        [
+          {
+            "node": "create-invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "order_data": {
+      "main": [
+        [
+          {
+            "node": "invoice_data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "date & sheet name",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "stock update data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delivery_data": {
+      "main": [
+        [
+          {
+            "node": "Append row in delivery sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create deliverysheet": {
+      "main": [
+        [
+          {
+            "node": "delivery_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in delivery sheet": {
+      "main": [
+        []
+      ]
+    },
+    "stock update data": {
+      "main": [
+        [
+          {
+            "node": "update_stock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "547c12fd-f8b2-437c-9be9-c59853f040b4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1057a12f5b0efb0a75c809b796ee16a02ca961380b464caee6e94c1a26f9efb9"
+  },
+  "id": "5w7zIJoQqi7yr0Cb",
+  "tags": []
+}

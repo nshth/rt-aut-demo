@@ -1,25 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from backend.db.database import sessionLocal, get_db
+from backend.db.database import get_db
 from backend.db.schema import Stockrequest
-from backend.db.models import Product
+from backend.logic.stock_checker import get_product_stock_status 
 
 router = APIRouter()
 
 @router.post('/check-stock')
 def check_stock(data: Stockrequest, db: Session = Depends(get_db)):
-    product = db.query(Product).filter(Product.name.ilike(f"%{data.productName.strip()}%")).first()
-
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    # Call the central logic
+    result = get_product_stock_status(data, db)
     
-    return {
-        "sku": product.sku,
-        "name": product.name,
-        "available": product.quantity_available,
-        "price": product.price,
-        "in_stock": product.quantity_available >= data.quantity
-    }
-
-
-
+    # Handle the error case for the API
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+    
+    return result

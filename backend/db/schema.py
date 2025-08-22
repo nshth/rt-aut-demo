@@ -14,7 +14,7 @@ class InvoiceRequest(BaseModel):
     sku: int
     product_name: str
     quantity_needed: int
-    total_price: int
+    total_price: float
 
 class stockUpdate(BaseModel):
     sku:str
@@ -23,3 +23,11 @@ class stockUpdate(BaseModel):
 class ChatRequest(BaseModel):
     sessionId: str
     message: str
+
+class InvoiceToolRequest(BaseModel):
+    customer_name: str
+    customer_contact: str
+    customer_address: str
+    product_name: str
+    quantity_needed: int
+    total_price: float
