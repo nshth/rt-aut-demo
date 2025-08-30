@@ -18,13 +18,14 @@ from backend.logic.stock_checker import get_product_stock_status
 from backend.logic.fetch_sku import fetch_sku
 from backend.logic.invoice_generator import generate_invoice_pdf
 from backend.logic.stock_updater import update_product_stock
+from backend.logic.del_sheet_maker import make_delivery_sheet
 from backend.db.database import sessionLocal
 
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
-RECIPIENT_EMAIL = "rashahaneefa0@gmail.com"
+RECIPIENT_EMAIL =  os.getenv("RECIPIENT_EMAIL")
 
 @tool
 def check_stock_tool(data: Stockrequest) -> dict:
@@ -44,7 +45,7 @@ def check_stock_tool(data: Stockrequest) -> dict:
 def create_invoice_and_process_order(data: InvoiceToolRequest) -> str:
     """
     Use this tool AFTER the customer confirms their order.
-    It creates an invoice and updates the stock.
+    It append the data to google sheet.
     You MUST have the customer's name, contact, address, the product name, quantity, and total price.
     Pass the data as an InvoiceToolRequest object with these fields:
     - customer_name: str
@@ -57,15 +58,52 @@ def create_invoice_and_process_order(data: InvoiceToolRequest) -> str:
     db = sessionLocal()
     try:
         # Fetch SKU using the product name
-        sku = fetch_sku(data.product_name, db)
-        if not sku: 
+        pdata = fetch_sku(data.product_name, db)
+        if not pdata: 
             return f"Error: {data.product_name} is not found"
+        
+        sku = pdata['sku']
+        Unit_price = pdata['Unit_price']
+        
+        # Make PFD
+        pdf_buffer = generate_invoice_pdf(data, sku, Unit_price)
 
-        # Update stock
+        pdf_path = f"{data.customer_name}_invoice.pdf"
+        with open(pdf_path, "wb") as f:
+            f.write(pdf_buffer.read())
+    
+        #send it to company email but had to send it to customer via whatsapp
+        try:
+            yag = yagmail.SMTP(SENDER_EMAIL, SENDER_PASSWORD)
+            yag.send(
+                to=RECIPIENT_EMAIL,
+                subject=f"New Order Invoice - {data.customer_name}",
+                contents=(
+                    f"Hello Team,\n\n"
+                    f"A new order has been placed.\n\n"
+                    f"Customer: {data.customer_name}\n"
+                    f"Contact: {data.customer_contact}\n"
+                    f"Address: {data.customer_address}\n"
+                    f"Product: {data.product_name} (x{data.quantity_needed})\n"
+                    f"Total Price: LKR {data.total_price}\n\n"
+                    "Please find the invoice attached."
+                ),
+                attachments=[pdf_path]
+            )
+        except Exception as e:
+            return f"Invoice saved locally, but email failed: {e}"
+
+        make_delivery_sheet(data)
+
         update_product_stock(sku, data.quantity_needed, db)
 
-        return "Order successfully processed! The invoice has been sent, and the delivery sheet is updated."
-
+        return {"status": "success",
+                "message": f"Order processed for {data.customer_name}. Invoice sent to company.",
+                "customer_message": (
+                    f"Thank you {data.customer_name}, your order for "
+                    f"{data.quantity_needed} x {data.product_name} has been confirmed. "
+                    "Our delivery team will contact you shortly."
+                    )}
     except Exception as e:
         print(f"An error occurred: {e}")
         return f"An error occurred while processing the order: {str(e)}"
@@ -92,9 +130,9 @@ prompt = ChatPromptTemplate.from_messages(
                 * product_name: str
                 * quantity_needed: int
                 * total_price: float
-            - Return the exact response from create_invoice_and_process_order tool.
+            - if any information is missing, ask for it politely.
+            - IMPORTANT: Never send raw tool output. Instead, summarize the return text in a friendly, natural reply             
             - IMPORTANT: Always call the appropriate tool - don't generate manual responses when tools should be used!
-            - Make sure to collect ALL customer information before calling create_invoice_and_process_order
             """),
         MessagesPlaceholder("chat_history", optional=True),
         ("human", "{input}"),
