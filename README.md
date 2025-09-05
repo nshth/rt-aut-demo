@@ -6,7 +6,7 @@ P03 is an intelligent order-taking assistant designed to automate the messy manu
 ## Features
 
 - **AI Chat Widget**  
-  Uses a custom-trained LLM to interact with customers and understand orders.
+  Uses a LLM to interact with customers and understand orders.
 
 - **Product Availability Check**  
   Queries a connected PostgreSQL database to verify product SKUs and quantities in real-time.
