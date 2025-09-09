@@ -1,133 +1,124 @@
+# backend/utils/invoice_generator.py
 import uuid
 from datetime import datetime
 from io import BytesIO
+from decimal import Decimal
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+from typing import Optional
+
 from backend.db.schema import InvoiceToolRequest
 
 company_name = "NICK SriLanka."
-logo_path = "nick.png"
-invoice_number = "demo1"
-invoice_date = datetime.now().strftime("%d %B %Y")
-payment_info = "Cash On delivery"
-tax_rate = 0.0
-tax = 0.0
+logo_path = "nick.png"  # keep logo in project root or provide absolute path
 
-def generate_invoice_pdf(data: InvoiceToolRequest, SKU: str, Unit_price: int):
-    
+tax_rate = 0.0  # percent as decimal (e.g. 0.05 for 5%)
+
+def _format_currency(val: float) -> str:
+    return f"LKR {val:,.2f}"
+
+def generate_invoice_pdf(data: InvoiceToolRequest, SKU: str, Unit_price: float, image_url: Optional[str] = None) -> BytesIO:
+    """
+    Create a simple invoice PDF and return a BytesIO buffer.
+    - data: InvoiceToolRequest (customer + product info)
+    - SKU: variant SKU string
+    - Unit_price: unit price as float
+    - image_url: optional product image URL to include (not downloaded here)
+    """
+    # Build totals
+    qty = getattr(data, "quantity_needed", 1) or 1
+    unit_price = float(Unit_price or 0.0)
+    total_price = float(getattr(data, "total_price", 0.0) or (unit_price * qty))
+    subtotal = total_price
+    tax = subtotal * tax_rate
+    total_with_tax = subtotal + tax
+
+    invoice_number = uuid.uuid4().hex[:10].upper()
+    invoice_date = datetime.now().strftime("%d %B %Y")
+
     buffer = BytesIO()
     p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter  #(612, 792)
+    width, height = letter  # (612, 792)
 
-    # --- Colors ---
-    light_grey = colors.HexColor("#F0F0F0")
-    dark_grey = colors.HexColor("#333333")
-    
-    # --- Page Background ---
-    p.setFillColor(dark_grey)
-
-    # --- Header Section ---
-    y_pos = height - 1 * inch
-    
-    # Company Logo & Name (Left side)
+    # Header / Company
+    y = height - 0.75 * inch
     try:
-        # Increased logo size
-        p.drawImage(logo_path, 0.75 * inch, y_pos - 30, width=1.2*inch, height=1.2*inch, preserveAspectRatio=True, mask='auto')
-    except IOError:
-        # Fallback to text if image not found
-        p.setFont("Helvetica-Bold", 40)
-        p.drawString(0.75 * inch, y_pos, "NICK SriLanka.")
+        p.drawImage(logo_path, 0.6 * inch, y - 36, width=1.0*inch, height=1.0*inch, preserveAspectRatio=True, mask='auto')
+    except Exception:
+        p.setFont("Helvetica-Bold", 18)
+        p.drawString(0.6 * inch, y, company_name)
 
-    # Company name under logo
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(0.75 * inch, y_pos - 40, company_name)
+    p.setFont("Helvetica-Bold", 18)
+    p.drawString(1.8 * inch, y, company_name)
 
-    # Invoice Title (Right side, aligned better)
-    p.setFont("Helvetica-Bold", 32)
-    p.drawRightString(width - 0.75 * inch, y_pos, "INVOICE")
+    p.setFont("Helvetica-Bold", 28)
+    p.drawRightString(width - 0.75 * inch, y, "INVOICE")
+    p.setFont("Helvetica", 10)
+    p.drawRightString(width - 0.75 * inch, y - 18, f"Invoice No. {invoice_number}")
+    p.drawRightString(width - 0.75 * inch, y - 34, invoice_date)
 
-    p.setFont("Helvetica", 12)
-    p.drawRightString(width - 0.75 * inch, y_pos - 20, f"Invoice No. {invoice_number}")
-    p.drawRightString(width - 0.75 * inch, y_pos - 35, f"{invoice_date}")
-
-    # --- Billed To Section ---
-    y_pos -= 1.6 * inch
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(0.75 * inch, y_pos, "BILLED TO:")
-    p.setFont("Helvetica", 12)
-    p.drawString(0.75 * inch, y_pos - 15, data.customer_name)
-    p.drawString(0.75 * inch, y_pos - 30, data.customer_contact)
-    # Handle multi-line address
-    address_lines = data.customer_address.split(', ')
-    addr_y = y_pos - 45
-    for line in address_lines:
-        p.drawString(0.75 * inch, addr_y, line)
-        addr_y -= 15
-
-    # --- Items Table ---
-    y_pos -= 1.5 * inch
-    table_x_positions = {
-        "item": 0.75 * inch,
-        "quantity": 4.25 * inch,
-        "unit_price": 5.5 * inch,
-        "total": 7 * inch
-    }
-
-    # Table Header
+    # Billed To
+    y -= 1.1 * inch
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(table_x_positions["item"], y_pos, "Item")
-    p.drawString(table_x_positions["quantity"], y_pos, "Quantity")
-    p.drawString(table_x_positions["unit_price"], y_pos, "Unit Price")
-    p.drawString(table_x_positions["total"], y_pos, "Total")
-    
-    # Header line
-    y_pos -= 10
-    p.line(0.75 * inch, y_pos, width - 0.75 * inch, y_pos)
-    y_pos -= 15
-    
-    # Table Row (aligned neatly)
-    p.setFont("Helvetica", 12)
-    p.drawString(table_x_positions["item"], y_pos, data.product_name)
-    p.drawRightString(table_x_positions["quantity"] + 40, y_pos, str(data.quantity_needed))
-    p.drawRightString(table_x_positions["unit_price"] + 40, y_pos, f"LKR {Unit_price:.2f}")
-    p.drawRightString(table_x_positions["total"] + 40, y_pos, f"LKR {data.total_price:.2f}")
+    p.drawString(0.75 * inch, y, "BILLED TO:")
+    p.setFont("Helvetica", 10)
+    p.drawString(0.75 * inch, y - 16, data.customer_name)
+    p.drawString(0.75 * inch, y - 32, data.customer_contact)
 
-    # --- Totals Section ---
-    y_pos -= 40
-    p.line(4 * inch, y_pos, width - 0.75 * inch, y_pos)
-    y_pos -= 15
+    addr_y = y - 48
+    for line in (data.customer_address or "").split(","):
+        p.drawString(0.75 * inch, addr_y, line.strip())
+        addr_y -= 12
 
-    totals_y_base = y_pos
-    p.setFont("Helvetica", 12)
-    p.drawString(4.5 * inch, totals_y_base - 20, "Subtotal")
-    p.drawRightString(width - 0.75 * inch, totals_y_base - 20, f"LKR {data.total_price:.2f}")
+    # Items table header
+    table_y = addr_y - 18
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(0.75 * inch, table_y, "Item")
+    p.drawString(4.25 * inch, table_y, "Quantity")
+    p.drawString(5.5 * inch, table_y, "Unit Price")
+    p.drawString(7.0 * inch, table_y, "Total")
+    p.line(0.75 * inch, table_y - 4, width - 0.75 * inch, table_y - 4)
 
-    p.drawString(4.5 * inch, totals_y_base - 40, f"Tax ({int(tax_rate * 100)}%)")
-    p.drawRightString(width - 0.75 * inch, totals_y_base - 40, f"LKR {tax:.2f}")
+    # Item row
+    row_y = table_y - 20
+    p.setFont("Helvetica", 10)
+    item_label = f"{data.product_name} (SKU: {SKU})"
+    p.drawString(0.75 * inch, row_y, item_label)
+    p.drawRightString(4.9 * inch, row_y, str(qty))
+    p.drawRightString(6.5 * inch, row_y, _format_currency(unit_price))
+    p.drawRightString(width - 0.75 * inch, row_y, _format_currency(total_price))
+
+    # Totals
+    totals_y = row_y - 40
+    p.line(4 * inch, totals_y + 10, width - 0.75 * inch, totals_y + 10)
+    p.setFont("Helvetica", 10)
+    p.drawString(4.5 * inch, totals_y - 4, "Subtotal")
+    p.drawRightString(width - 0.75 * inch, totals_y - 4, _format_currency(subtotal))
+
+    p.drawString(4.5 * inch, totals_y - 20, f"Tax ({int(tax_rate * 100)}%)")
+    p.drawRightString(width - 0.75 * inch, totals_y - 20, _format_currency(tax))
 
     p.setFont("Helvetica-Bold", 12)
-    p.drawString(4.5 * inch, totals_y_base - 70, "Total")
-    p.drawRightString(width - 0.75 * inch, totals_y_base - 70, f"LKR {data.total_price:.2f}")
+    p.drawString(4.5 * inch, totals_y - 42, "Total")
+    p.drawRightString(width - 0.75 * inch, totals_y - 42, _format_currency(total_with_tax))
 
-    # --- Footer Section ---
-    footer_y = 2.5 * inch
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(footer_y, footer_y, "Thanks For your Purchase from NICK.")
+    # Footer note
+    footer_text = "Thanks for your purchase from NICK."
+    p.setFont("Helvetica-Oblique", 10)
+    p.drawCentredString(width / 2.0, 0.7 * inch, footer_text)
 
-
-
-    # --- Save PDF ---
     p.showPage()
     p.save()
     buffer.seek(0)
     return buffer
 
 
-# --- Main execution block ---
-if __name__ == '__main__':
-    invoice_details = InvoiceToolRequest(
+# quick test block (run file directly)
+if __name__ == "__main__":
+    from backend.db.schema import InvoiceToolRequest
+    demo = InvoiceToolRequest(
         customer_name="Amira Khan",
         customer_contact="+94-789-456-231",
         customer_address="no. 45, orchid lane, colombo 5",
@@ -135,12 +126,7 @@ if __name__ == '__main__':
         quantity_needed=2,
         total_price=246.00
     )
-
-    # Generate the PDF
-    pdf_buffer = generate_invoice_pdf(invoice_details, SKU=104, Unit_price=150.00)
-
-    # Save the PDF to a file
+    buf = generate_invoice_pdf(demo, SKU="TESTSKU-001", Unit_price=123.00)
     with open("invoice.pdf", "wb") as f:
-        f.write(pdf_buffer.read())
-
-    print("Successfully generated invoice.pdf")
+        f.write(buf.read())
+    print("invoice.pdf generated")

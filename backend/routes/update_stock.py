@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.db.database import sessionLocal, get_db
-from backend.db.schema import stockUpdate
+from backend.db.schema import StockUpdate
 from backend.db.models import Product
 
 router = APIRouter()
 
 @router.post('/update-stock')
-def update_stock(data: stockUpdate, db: Session = Depends(get_db)):
+def update_stock(data: StockUpdate, db: Session = Depends(get_db)):
     product = db.query(Product).filter(Product.sku == data.sku).first()
 
     if not product:

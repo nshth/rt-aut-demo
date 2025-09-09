@@ -5,7 +5,7 @@ import yagmail
 import os
 from dotenv import load_dotenv
 
-from backend.db.schema import Stockrequest, InvoiceToolRequest, stockUpdate
+from backend.db.schema import StockRequest, InvoiceToolRequest, StockUpdate
 
 from langchain.memory import ConversationBufferMemory
 from langchain_community.chat_message_histories import RedisChatMessageHistory
@@ -19,6 +19,7 @@ from backend.logic.fetch_sku import fetch_sku
 from backend.logic.invoice_generator import generate_invoice_pdf
 from backend.logic.stock_updater import update_product_stock
 from backend.logic.del_sheet_maker import make_delivery_sheet
+from backend.service.hitl import notify_human
 from backend.db.database import sessionLocal
 
 load_dotenv()
@@ -30,8 +31,24 @@ UPSTASH_REDIS_HOST = os.getenv("UPSTASH_REDIS_HOST")
 UPSTASH_REDIS_PORT = os.getenv("UPSTASH_REDIS_PORT")
 UPSTASH_REDIS_PASSWORD = os.getenv("UPSTASH_REDIS_PASSWORD")
 
+def request_human_support_tool(subject: str, message: str, context: dict = None):
+    try:
+        notify_human(subject, message, context)
+        return {"success": True, "message": "Human support has been notified."}
+    except Exception as e:
+        return {"success": False, "error": f"Request for human support failed: {e}"}
 
-def check_stock_tool(data: Stockrequest) -> dict:
+request_human_support_tool = StructuredTool.from_function(
+    func=request_human_support_tool,
+    name="request_human_support_tool",
+    description="""
+    Use this tool when the customer explicitly asks for human support,
+    or if customer cancells their order.
+    It will notify the human moderator by email with the subject, message,
+    and any optional context.
+    """)
+
+def check_stock_tool(data: StockRequest) -> dict:
     # Create a dedicated database session for the tool to use
     db = sessionLocal()
     try:
@@ -90,7 +107,7 @@ def create_invoice_and_process_order(data: InvoiceToolRequest) -> dict:
 
         make_delivery_sheet(data)
 
-        update_product_stock(sku, data.quantity_needed, db)
+        # update_product_stock(sku, data.quantity_needed, db)
 
         return {
             "success": True,
@@ -128,6 +145,7 @@ prompt = ChatPromptTemplate.from_messages(
         ("system", """You are a conversational sales agent with a strict workflow. Follow these steps precisely.
 
             ## Workflow Steps
+            **if customer ever wants to talk to a human or cancells their order then call `request_human_support_tool`**
 
             **Step 1: Get Product and Quantity**
             - Your first job is to identify the product name and quantity from the user's request, if not ask.
@@ -157,6 +175,7 @@ prompt = ChatPromptTemplate.from_messages(
             - After the tool call is successful, replay the success message from the tool's response to the user.
 
             ## General Rules:
+            - **if customer ever wants to talk to a human or cancells their order then call `request_human_support_tool`**
             - Be polite and concise.
             - Never show raw tool output.
             - Once the order is confirmed, you must move forward with calling the `create_invoice_and_process_order`.
@@ -186,5 +205,5 @@ def get_memory(session_id: str):
         return_messages=True
     )
 
-tools = [check_stock_tool, create_invoice_and_process_order]
+tools = [check_stock_tool, create_invoice_and_process_order, request_human_support_tool]
 agent = create_openai_tools_agent(llm, tools, prompt)
