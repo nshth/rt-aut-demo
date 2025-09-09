@@ -5,6 +5,8 @@ import httpx
 from backend.service.session_manager import SessionManager
 from langchain.agents import AgentExecutor
 from backend.agent.chat_agent import agent, tools, get_memory
+from backend.service.hitl import notify_human
+
 
 load_dotenv()
 session_manager = SessionManager()
@@ -78,12 +80,13 @@ async def process_whatsapp_message(from_number: str, message: str) -> dict:
     except Exception as e:
         print(f"Agent error for {from_number}: {e}")
         error_output = "Sorry, I encountered an error processing your request. Please try again."
-        
-        try:
-            await send_whatsapp_message(from_number, error_output)
-        except Exception as send_error:
-            print(f"Failed to send error message to {from_number}: {send_error}")
-        
+
+        # HITL notify
+        notify_human(
+            subject="Agent Failure",
+            message=f"Agent failed for {from_number}",
+            context={"error": str(e), "last_message": message}
+        )        
         return {
             "status": "error", 
             "session_id": session_id if 'session_id' in locals() else None,
