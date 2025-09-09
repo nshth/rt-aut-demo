@@ -11,3 +11,4 @@ httpx
 yagmail 
 gspread 
 google-auth-oauthlib
+redis
