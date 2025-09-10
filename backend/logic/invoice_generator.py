@@ -115,18 +115,3 @@ def generate_invoice_pdf(data: InvoiceToolRequest, SKU: str, Unit_price: float, 
     return buffer
 
 
-# quick test block (run file directly)
-if __name__ == "__main__":
-    from backend.db.schema import InvoiceToolRequest
-    demo = InvoiceToolRequest(
-        customer_name="Amira Khan",
-        customer_contact="+94-789-456-231",
-        customer_address="no. 45, orchid lane, colombo 5",
-        product_name="Floral Dress",
-        quantity_needed=2,
-        total_price=246.00
-    )
-    buf = generate_invoice_pdf(demo, SKU="TESTSKU-001", Unit_price=123.00)
-    with open("invoice.pdf", "wb") as f:
-        f.write(buf.read())
-    print("invoice.pdf generated")

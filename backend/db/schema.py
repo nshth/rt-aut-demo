@@ -144,8 +144,8 @@ class InvoiceToolRequest(BaseModel):
     product_name: str
     quantity_needed: int
     total_price: float
-    color: Optional[str] = None
-    size: Optional[str] = None
+    color: Optional[str]
+    size: Optional[str]
 
 class StockUpdate(BaseModel):
     sku: str
