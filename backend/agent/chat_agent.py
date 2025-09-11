@@ -31,22 +31,33 @@ UPSTASH_REDIS_HOST = os.getenv("UPSTASH_REDIS_HOST")
 UPSTASH_REDIS_PORT = os.getenv("UPSTASH_REDIS_PORT")
 UPSTASH_REDIS_PASSWORD = os.getenv("UPSTASH_REDIS_PASSWORD")
 
-def request_human_support_tool(subject: str, message: str, context: dict = None):
-    try:
-        notify_human(subject, message, context)
-        return {"success": True, "message": "Human support has been notified."}
-    except Exception as e:
-        return {"success": False, "error": f"Request for human support failed: {e}"}
+def create_session_aware_human_support_tool(session_id: str, from_number: str = None):
+    """
+    Factory function that creates a session-aware human support tool.
+    This captures the session_id and from_number in the closure.
+    """
+    def request_human_support_tool(subject: str, message: str):
+        try:
+            # Build context with session information
+            context = {
+                "session_id": session_id,
+                "from_number": from_number
+            }
+            
+            notify_human(subject, message, context)
+            return {"success": True, "message": "Human support has been notified."}
+        except Exception as e:
+            return {"success": False, "error": f"Request for human support failed: {e}"}
 
-request_human_support_tool = StructuredTool.from_function(
-    func=request_human_support_tool,
-    name="request_human_support_tool",
-    description="""
-    Use this tool when the customer explicitly asks for human support,
-    or if customer cancells their order.
-    It will notify the human moderator by email with the subject, message,
-    and any optional context.
-    """)
+    return StructuredTool.from_function(
+        func=request_human_support_tool,
+        name="request_human_support_tool",
+        description="""
+        Use this tool when the customer explicitly asks for human support,
+        or if customer cancels their order.
+        It will notify the human moderator by email with the subject, message,
+        and will include the current session context.
+        """)
 
 def check_stock_tool(data: StockRequest) -> dict:
     # Create a dedicated database session for the tool to use
@@ -204,6 +215,23 @@ def get_memory(session_id: str):
         chat_memory=chat_history,
         return_messages=True
     )
+def create_agent_executor(session_id: str, from_number: str = None):
 
-tools = [check_stock_tool, create_invoice_and_process_order, request_human_support_tool]
-agent = create_openai_tools_agent(llm, tools, prompt)
+    # Create the session-aware human support tool
+    human_support_tool = create_session_aware_human_support_tool(session_id, from_number)
+    
+    # Combine all tools
+    tools = [check_stock_tool, create_invoice_and_process_order, human_support_tool]
+    
+    # Create and return the agent executor
+    agent = create_openai_tools_agent(llm, tools, prompt)
+    memory = get_memory(session_id)
+    return AgentExecutor(
+            agent=agent,
+            tools=tools,
+            memory=memory,
+            verbose=True,
+            handle_parsing_errors=True,
+            max_iterations=5,
+            return_intermediate_steps=False)
+

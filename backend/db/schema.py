@@ -2,8 +2,8 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
-# Base schemas for reference data
 class GenderBase(BaseModel):
     label: str
 
@@ -154,6 +154,26 @@ class StockUpdate(BaseModel):
 class ChatRequest(BaseModel):
     sessionId: str
     message: str
+
+class SessionStatus(str, Enum):
+    AGENT_CONTROL = "under-agent-control"
+    HUMAN_CONTROL = "under-human-control"
+    NEED_HUMAN_SUPPORT = "need-human-support"
+
+class HITLSession(BaseModel):
+    session_id: str
+    customer_number: str
+    status: SessionStatus
+    last_message: Optional[str] = None
+    updated_at: datetime
+
+class HITLMessage(BaseModel):
+    sender: str  # "agent" | "human" | "customer"
+    text: str
+    timestamp: datetime
+
+class HumanReplyRequest(BaseModel):
+    text: str
 
 # CSV Import schema
 class ProductCSVRow(BaseModel):

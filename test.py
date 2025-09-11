@@ -1,6 +1,6 @@
 import asyncio
 import warnings
-from backend.agent.chat_agent import agent, tools, get_memory
+from backend.agent.chat_agent import create_agent_executor
 from langchain.agents import AgentExecutor
 
 # --- Silencing deprecation warnings ---
@@ -19,17 +19,8 @@ async def main():
 
     # Session & memory
     session_id = "cli_test_user"  # fake session ID for testing
-    memory = get_memory(session_id)
-
     # Agent executor
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        memory=memory,
-        verbose=True,
-        handle_parsing_errors=True,
-        max_iterations=5
-    )
+    agent_executor = create_agent_executor(session_id, from_number)
 
     # Main loop
     while True:
