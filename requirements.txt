@@ -12,3 +12,5 @@ yagmail
 gspread 
 google-auth-oauthlib
 redis
+websockets
+PyJWT

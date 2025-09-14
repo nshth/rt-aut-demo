@@ -1,3 +1,4 @@
+# backend/service/session_manager.py (Updated)
 import os
 import asyncio
 from datetime import datetime
@@ -20,11 +21,16 @@ r = redis.Redis(
     password=UPSTASH_REDIS_PASSWORD,
     ssl=True,
     ssl_cert_reqs=None,
-    decode_responses=True  # ✅ This fixes the bytes issue!
+    decode_responses=True
 )
 
 class SessionManager:
     SESSION_TTL = 60 * 60 * 24 * 7  
+    
+    @staticmethod
+    def get_current_timestamp():
+        """Get current timestamp in ISO format"""
+        return datetime.utcnow().isoformat()
     
     @staticmethod
     async def get_or_create_session(wa_number: str) -> str:
@@ -39,22 +45,28 @@ class SessionManager:
 
         # store number for reverse lookup
         await r.set(f"session:{session_id}:number", clean_number, ex=SessionManager.SESSION_TTL)
-
         await r.set(f"session:{session_id}:history", json.dumps([]), ex=SessionManager.SESSION_TTL)
+        
+        # Set initial status
+        await SessionManager.set_session_status(session_id, SessionStatus.AGENT_CONTROL)
+        
         return session_id
 
-    
     @staticmethod
     async def set_session_status(session_id: str, status: str):
         key = f"session:{session_id}:status"
         await r.set(key, status, ex=SessionManager.SESSION_TTL)
-
+        await SessionManager.update_session_summary(session_id)
 
     @staticmethod
     async def get_session_status(session_id: str) -> str:
         key = f"session:{session_id}:status"
         return await r.get(key) or SessionStatus.AGENT_CONTROL
     
+    @staticmethod
+    async def get_session_customer(session_id: str) -> str:
+        """Get customer number for a session"""
+        return await r.get(f"session:{session_id}:number") or "unknown"
 
     @staticmethod
     async def update_session_summary(session_id: str, last_message: str = None):
@@ -65,7 +77,7 @@ class SessionManager:
 
         summary = {
             "session_id": session_id,
-            "customer_number": customer_number,
+            "customer_number": f"+{customer_number}" if not customer_number.startswith("+") else customer_number,
             "status": status,
             "last_message": last_message,
             "updated_at": datetime.utcnow().isoformat()
@@ -78,15 +90,20 @@ class SessionManager:
         key = f"session:{session_id}:history"
         history_raw = await r.get(key)
         history = json.loads(history_raw) if history_raw else []
-        history.append({
+        
+        message = {
             "sender": sender,
             "text": text,
-            "timestamp": datetime.utcnow().isoformat()
-        })
+            "timestamp": SessionManager.get_current_timestamp()
+        }
+        
+        history.append(message)
         await r.set(key, json.dumps(history), ex=SessionManager.SESSION_TTL)
 
         # Update summary for fast listing
         await SessionManager.update_session_summary(session_id, last_message=text)
+        
+        return message
 
     @staticmethod
     async def list_active_sessions() -> list[dict]:
@@ -110,7 +127,7 @@ class SessionManager:
                 break
 
         # sort by updated_at descending
-        sessions.sort(key=lambda x: x["updated_at"], reverse=True)
+        sessions.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return sessions
 
     @staticmethod
@@ -128,3 +145,8 @@ class SessionManager:
     @staticmethod
     async def get_assigned_admin(session_id: str):
         return await r.get(f"session:{session_id}:admin")
+    
+    @staticmethod
+    async def mark_as_needs_human(session_id: str):
+        """Mark session as needing human support"""
+        await SessionManager.set_session_status(session_id, "need-human-support")
