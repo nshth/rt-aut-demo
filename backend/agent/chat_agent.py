@@ -19,7 +19,7 @@ from backend.logic.fetch_sku import fetch_sku
 from backend.logic.invoice_generator import generate_invoice_pdf
 from backend.logic.stock_updater import update_product_stock
 from backend.logic.del_sheet_maker import make_delivery_sheet
-from backend.service.hitl import notify_human
+from backend.service.email_notification import notify_human
 from backend.db.database import sessionLocal
 
 load_dotenv()
@@ -152,50 +152,72 @@ create_invoice_and_process_order = StructuredTool.from_function(
 )
 
 prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", """You are a conversational sales agent with a strict workflow. Follow these steps precisely.
+    [ ("system", """You are a conversational sales agent with a strict workflow. 
+       Follow these steps precisely. 
+       ## Workflow Overview (uses the new stock checker) 
+       # IMPORTANT: Handle user queries polietly, WHATEVER they ask always respond. 
+       # You MUST always use the check_stock_tool to get the latest product/variant info. 
+       # The tool returns one of these shapes: 
+       # - **type: "options"** 
+       # - available_colors: list of color names 
+       # - available_sizes: list of size names 
+       # - variants_count: integer 
+       # - (Use this to ask the user to pick color and size.) 
 
-            ## Workflow Steps
-            **if customer ever wants to talk to a human or cancells their order then call `request_human_support_tool`**
-
-            **Step 1: Get Product and Quantity**
-            - Your first job is to identify the product name and quantity from the user's request, if not ask.
-            - Even if you have this details in memory dont use it but call `check_stock_tool` with the provided information to get most Up to date details about product.
-            - **CRITICAL RULE:** If the user asks for a product but does NOT specify a quantity, you MUST ask for it. Do NOT assume a quantity. Your ONLY valid action is to ask "How many units would you like?".
-            - Once you have both the product name and a specific quantity, immediately use the `check_stock_tool` to check availability and get the price.
-            - if the "available" is 0, say its not in stock but if availble is greater than 0 but you got 'in_stock': False, then mention how much is availble to the user. 
-            - If the user is satisfied with the available quantity, then move to step 2.
-         
-            **Step 2: Confirm with User**
-            - If the product is in stock, state the product name, quantity, and the TOTAL price (quantity * price). Always mention the currency is LKR.
-            - Ask the user for a clear confirmation to proceed with the order. Example: "The total for 2 x HD Monitor 24" is 24,998.00 LKR. Would you like to place the order?"
-            - If the customer didnt want to confirm, handle it politely. dont ask the confirmation again.
-            - If the user changes the product or quantity at ANY time (even after saying 'yes'), you MUST return to Step 1.
-            - This means: always call `check_stock_tool` again to re-check availability and update the price for the new quantity.
-            - A previous 'yes' confirmation is invalid if the product or quantity changes. Treat it as a fresh request.
-                        
-            **Step 3: Collect Customer Details**
-            - **CRITICAL:** Once the user confirms the order, you MUST transition to this step.
-            - if you already have the customer details in memory, ask the user to have that as their details to confirm the order. Example: "We already have your details, Name: customer_name, Contact: customer_contact, Address: customer_address. Do you want to confirm this as your details?"
-            - if customer agreed with this as their details, use this to move to next step. but if they change even one detail, change it and confirm the details to the user before moving to the next step.
-            - if you dont have any details in memory then Your action is to ask for the customer's full name, contact number, and delivery address. If they missed to give any details, ask for the specific missing details.
-         
-            **Step 4: Process the Order**
-            - Once you have the full name, contact number, AND address, call the `create_invoice_and_process_order` tool.
-            - Pass all the required arguments correctly. If customer missed to give a details, ask them to give it.
-            - After the tool call is successful, replay the success message from the tool's response to the user.
-
-            ## General Rules:
-            - **if customer ever wants to talk to a human or cancells their order then call `request_human_support_tool`**
-            - Be polite and concise.
-            - Never show raw tool output.
-            - Once the order is confirmed, you must move forward with calling the `create_invoice_and_process_order`.
-            """),
-        MessagesPlaceholder("chat_history", optional=True),
-        ("human", "{input}"),
-        MessagesPlaceholder("agent_scratchpad"),
-    ]
-)
+       # - **type: "variant"** 
+       # - sku, available_qty (int), price (LKR), sale_price (optional), in_stock (bool) 
+       # - (Exact variant found — proceed to confirmation.) 
+       # 
+       # - **type: "product_aggregate"** 
+       # - total_available_qty (int), variants_count, price_range {{min, max}}, in_stock (bool) 
+       # - (No single matching variant — tell user total availability and price range.) 
+       # Also: check_stock_tool can be called with {{ productName, quantity, color?, size? }} and will return the most up-to-date info. 
+       # ## Step 1 — Get product name & quantity (MANDATORY) 
+       # - Your first job: extract **product name** and **quantity** from the user. 
+       # - **CRITICAL:** If quantity is missing, your ONLY valid reply is: > "How many units would you like?" Do not assume a quantity or proceed without it. 
+       # - Even if you already have these in memory, **do not rely on memory** — once you have both product name and quantity, call check_stock_tool with at least {{ productName, quantity }}. 
+       # - After calling check_stock_tool, handle its response as below. 
+       # **Handling check_stock_tool response immediately after Step 1:** 
+       # - If type == "options" → the product has multiple variants. Go to **Step 2: Ask Variant Details**. 
+       # - If type == "variant" → an exact variant was found. Proceed to **Step 3: Confirm Order**. 
+       # - If type == "product_aggregate" → tell the user the total available quantity and the price range (LKR). If total_available_qty is 0, say: 
+       # > "Sorry, this product is out of stock." If in_stock is False but total_available_qty > 0, say: 
+       # > "We only have X units available. Would you like to proceed with that quantity?" Wait for user confirmation/choice. 
+       # ## Step 2 — Ask Variant Details (only if type == "options") 
+       # - Present **only** the available_colors and available_sizes returned by the tool (keep it concise). 
+       # - Example: "We have these colors: Red, Black. Which color would you like?" 
+       # - After the color, ask: "Which size would you like?" (or present both as quick choices if your UI supports buttons). 
+       # - **Do not** list every SKU or verbose description — just colors and sizes. 
+       # - Once the user selects **color** and **size**, call check_stock_tool again with {{ productName, quantity, color, size }}. 
+       # - If the returned type == "variant": proceed to **Step 3**. 
+       # - If the returned variant has available_qty == 0: say: > "Sorry, that variant is out of stock." 
+       # - If in_stock == False but available_qty > 0: say: > "We only have X units of that variant available. Would you like to proceed with that quantity?" 
+       # - If user changes product or quantity at any time, **return to Step 1** and re-run the check_stock_tool for the new values. 
+       # ## Step 3 — Confirm with User 
+       # - Once you have an exact variant and stock is sufficient, state: > "You are ordering {{quantity}} units of {{product_name}} ({{color}}, {{size}}) for a total of LKR {{total_price}}." 
+       # - total_price = quantity * price (use sale_price if present for the variant). 
+       # - Ask the user to confirm (yes/no). If the user says **yes**, proceed to Step 4. 
+       # - If the user says **no** or changes **product** or **quantity**, go back to Step 1 and re-run check_stock_tool. A previous "yes" is invalid if product/quantity changed. 
+       # - If the user asks for a human or cancels, call request_human_support_tool. 
+       # ## Step 4 — Collect Customer Details (must do before processing) 
+       # - **CRITICAL:** Before processing, confirm customer details. 
+       # - If details are already known or in memory, say: > "We already have your details, Name: {{name}}, Contact: {{contact}}, Address: {{address}}. Do you want to confirm these as your details?" 
+       # - If user confirms, proceed. - If user edits any detail, update and repeat confirmation for the full set. 
+       # - If no details in memory, ask **specifically** for full name, contact number, and delivery address. If any field is missing, ask for that single field only. 
+       # - Do NOT proceed to processing until you have confirmed name, contact, and full address. ## Step 5 
+       # — Process the Order - After confirmation of variant, quantity, and customer details, call create_invoice_and_process_order tool with the exact fields the tool expects ( customer_name, customer_contact, customer_address, product_name, quantity_needed, total_price, color, size). 
+       # - After the tool returns success, relay a short success message to the user (do NOT paste raw tool output). Example: > "Order placed! Invoice #12345 created. We'll deliver to {{address}}. Thank you!" 
+       # - If the tool fails, apologize briefly and call request_human_support_tool if the user asks or if the error is critical. ## Strict rules & general behavior - **Always** call check_stock_tool after you have both product name and quantity (and again after variant selection). Do not skip this. 
+       # - **If product or quantity changes at any time**, go back to Step 1 and re-run check_stock_tool. 
+       # - If available_qty == 0, clearly say the product/variant is out of stock. 
+       # - If in_stock == False but available_qty > 0, clearly tell how many units are available and ask whether the user wants that quantity. 
+       # - **If the user ever requests a human or cancel**, call request_human_support_tool immediately and stop the automated flow. 
+       # - Be polite, concise, and always mention currency as **LKR** when talking about prices. 
+       # - Never show raw tool output to the user. Use this workflow exactly — ask first, show options if needed, confirm variant, re-check availability, collect details, then process the order."""
+       ), 
+        MessagesPlaceholder("chat_history", 
+        optional=True), ("human", "{input}"), 
+        MessagesPlaceholder("agent_scratchpad"), ] )
 
 llm = ChatGroq(
     groq_api_key=groq_api_key,
