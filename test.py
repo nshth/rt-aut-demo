@@ -1,7 +1,6 @@
 import asyncio
 import warnings
-from backend.agent.chat_agent import create_agent_executor
-from langchain.agents import AgentExecutor
+from backend.service.whatsapp_service import WhatsAppService
 
 # --- Silencing deprecation warnings ---
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -11,18 +10,15 @@ YELLOW = "\033[0;33m"
 GREEN = "\033[0;32m"
 WHITE = "\033[0;39m"
 
+wa_service = WhatsAppService()  
+
 async def main():
-    # Header
     print(f"{YELLOW}" + "-"*81)
-    print('I am an order-taking assistant. How can I help you?')
+    print("CLI WhatsApp Test. Type your message:")
     print("-"*81 + f"{WHITE}")
 
-    # Session & memory
-    session_id = "cli_test_user"  # fake session ID for testing
-    # Agent executor
-    agent_executor = create_agent_executor(session_id, from_number)
+    from_number = "cli_test_user"
 
-    # Main loop
     while True:
         query = input(f"{GREEN}Prompt: ").strip()
         if query.lower() in ["exit", "quit", "q", "f"]:
@@ -31,9 +27,8 @@ async def main():
         if not query:
             continue
 
-        response = await agent_executor.ainvoke({"input": query})
-        print(f"\n{WHITE}Answer: {response.get('output', 'No output returned')}\n")
+        # Directly call process_single_message and await result
+        reply = await wa_service.process_single_message(from_number, query)
 
 if __name__ == "__main__":
     asyncio.run(main())
-

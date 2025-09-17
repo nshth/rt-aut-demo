@@ -2,6 +2,7 @@
 import os
 import asyncio
 from datetime import datetime
+import pytz
 from backend.db.schema import SessionStatus, HITLSession, HITLMessage
 import redis.asyncio as redis
 import uuid
@@ -29,8 +30,13 @@ class SessionManager:
     
     @staticmethod
     def get_current_timestamp():
-        """Get current timestamp in ISO format"""
-        return datetime.utcnow().isoformat()
+        """Get current timestamp in Sri Lankan time (Asia/Colombo)"""
+        sl_timezone = pytz.timezone('Asia/Colombo')
+        sl_time = datetime.now(sl_timezone)
+        
+        # Return ISO format with timezone info
+        # This ensures the frontend can properly parse the timezone
+        return sl_time.isoformat()
     
     @staticmethod
     async def get_or_create_session(wa_number: str) -> str:

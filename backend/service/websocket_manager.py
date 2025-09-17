@@ -14,6 +14,15 @@ UPSTASH_REDIS_PASSWORD = os.getenv('UPSTASH_REDIS_PASSWORD')
 UPSTASH_REDIS_HOST = os.getenv('UPSTASH_REDIS_HOST')
 UPSTASH_REDIS_PORT = os.getenv('UPSTASH_REDIS_PORT')
 
+r = redis.Redis(
+    host=UPSTASH_REDIS_HOST,
+    port=int(UPSTASH_REDIS_PORT),
+    password=UPSTASH_REDIS_PASSWORD,
+    ssl=True,
+    ssl_cert_reqs=None,
+    decode_responses=True
+)
+
 logger = logging.getLogger(__name__)
 
 class WebSocketManager:
@@ -26,8 +35,7 @@ class WebSocketManager:
         
     async def initialize_redis(self):
         """Initialize Redis connection and pubsub"""
-        redis_url = f"rediss://:{UPSTASH_REDIS_PASSWORD}@{UPSTASH_REDIS_HOST}:{UPSTASH_REDIS_PORT}"
-        self.redis = redis.from_url(redis_url)
+        self.redis = r
         self.pubsub = self.redis.pubsub()
         
         # Subscribe to global channel
@@ -90,13 +98,19 @@ class WebSocketManager:
                 message = await self.pubsub.get_message(ignore_subscribe_messages=True)
                 if message and message['data']:
                     channel = message['channel']
-                    data = json.loads(message['data'])
+                    
+                    # FIX: Handle bytes properly
+                    if isinstance(channel, bytes):
+                        channel = channel.decode('utf-8')
+                        
+                    if isinstance(message['data'], bytes):
+                        data = json.loads(message['data'].decode('utf-8'))
+                    else:
+                        data = json.loads(message['data'])
                     
                     if channel == "hitl:global":
-                        # Send to all global subscribers
                         await self._broadcast_to_global(data)
                     elif channel.startswith("hitl:session:"):
-                        # Send to session subscribers
                         session_id = channel.replace("hitl:session:", "")
                         await self._broadcast_to_session(session_id, data)
                         

@@ -158,3 +158,5 @@ def make_delivery_sheet(data: InvoiceToolRequest) -> str:
         raise
 
     return f"Appended to: {spreadsheet_name}/{sheet_title}"
+
+creds = get_user_credentials()
