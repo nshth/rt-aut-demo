@@ -1,4 +1,4 @@
-        * {
+* {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -210,8 +210,13 @@
             margin-bottom: 16px;
         }
 
-        .message-customer {
+        .message-agent,
+        .message-human {
             text-align: right;
+        }
+
+        .message-customer {
+            text-align: left;
         }
 
         .message-bubble {
@@ -225,12 +230,14 @@
         .message-customer .message-bubble {
             background: #4f46e5;
             color: white;
+            text-align: left;
         }
 
         .message-agent .message-bubble,
         .message-human .message-bubble {
             background: #374151;
             color: #f3f4f6;
+            text-align: left;
         }
 
         .message-sender {
@@ -264,6 +271,7 @@
         }
 
         .action-button {
+            flex: 1;
             padding: 10px 20px;
             border-radius: 6px;
             border: none;
@@ -271,6 +279,7 @@
             font-size: 14px;
             font-weight: 500;
             transition: all 0.2s;
+            height: 44px;
         }
 
         .btn-reply {
@@ -324,6 +333,7 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
+            min-height: 44px;
             min-width: 60px;
         }
 
@@ -345,7 +355,7 @@
             display: block;
         }
 
-        .chat-area.show-input .chat-input-area {
+        .chat-area.show-input:not(.show-actions) .chat-input-area {
             display: block;
         }
 
