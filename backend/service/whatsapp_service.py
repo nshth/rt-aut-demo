@@ -1,4 +1,4 @@
-# backend/service/whatsapp_service.py (Updated)
+# twilio send logic is comment out to test 
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -6,7 +6,7 @@ import httpx
 from backend.service.session_manager import SessionManager
 from langchain.agents import AgentExecutor
 from backend.agent.chat_agent import create_agent_executor
-from backend.service.email_notification import notify_human
+from backend.service.email_notification import notify_human_async
 from backend.service.websocket_manager import publish_message_created, publish_session_update, publish_counts_update
 
 load_dotenv()
@@ -22,26 +22,27 @@ def _wa(n: str) -> str:
 
 async def send_whatsapp_message(to_number: str, message: str) -> None:
     """Send WhatsApp message via Twilio API"""
-    print(f"Agent reply:{message}")
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-    data = {
-        "From": _wa(TWILIO_WHATSAPP_NUMBER),
-        "To": _wa(to_number),
-        "Body": message,
-    }
+    return (message)
+    # print(f"Agent reply:{message}")
+    # url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+    # data = {
+    #     "From": _wa(TWILIO_WHATSAPP_NUMBER),
+    #     "To": _wa(to_number),
+    #     "Body": message,
+    # }
     
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            url, 
-            data=data, 
-            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), 
-            timeout=30
-        )
-        try:
-            resp.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            detail = resp.text[:500]
-            raise RuntimeError(f"Twilio send failed: {e} :: {detail}") from e
+    # async with httpx.AsyncClient() as client:
+    #     resp = await client.post(
+    #         url, 
+    #         data=data, 
+    #         auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), 
+    #         timeout=30
+    #     )
+    #     try:
+    #         resp.raise_for_status()
+    #     except httpx.HTTPStatusError as e:
+    #         detail = resp.text[:500]
+    #         raise RuntimeError(f"Twilio send failed: {e} :: {detail}") from e
 
 async def process_whatsapp_message(from_number: str, message: str) -> dict:
     """Process a single WhatsApp message using LangChain agent"""
@@ -71,20 +72,19 @@ async def process_whatsapp_message(from_number: str, message: str) -> dict:
         })
         output = response.get("output", "Sorry, I couldn't process that request. Please try again.")
         
-        # Send response back to user
         await send_whatsapp_message(from_number, output)
-        
+     
         # Add agent message to history and publish via WebSocket
         agent_message = await SessionManager.append_message(session_id, "agent", output)
         await publish_message_created(session_id, agent_message)
         await publish_session_update(session_id, status, output)
         
-        return {
-            "status": "completed",
-            "session_id": session_id,
-            "response_sent": True,
-            "from_number": from_number
-        }
+        # return {
+        #     "status": "completed",
+        #     "session_id": session_id,
+        #     "response_sent": True,
+        #     "from_number": from_number
+        # }
         
     except Exception as e:
         print(f"Agent error for {from_number}: {e}")
@@ -98,7 +98,7 @@ async def process_whatsapp_message(from_number: str, message: str) -> dict:
             pass  # Don't fail if we can't send error message
 
         # HITL notify with WebSocket integration
-        await notify_human(
+        await notify_human_async(
             subject="Agent Failure",
             message=f"Agent failed for {from_number}: {str(e)}",
             context={

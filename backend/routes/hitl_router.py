@@ -3,6 +3,7 @@ from typing import List
 from pydantic import BaseModel
 from backend.db.schema import HITLSession, HITLMessage, HumanReplyRequest
 from backend.service.session_manager import SessionManager
+from backend.service.whatsapp_service import send_whatsapp_message
 from backend.service.websocket_manager import publish_message_created, publish_session_update, publish_counts_update
 from backend.service.email_notification import EmailNotificationService
 # from backend.routes.auth import get_current_user
@@ -40,91 +41,57 @@ async def get_history(
         raise HTTPException(status_code=404, detail="Session not found")
     return history
 
-@router.post("/sessions/{session_id}/reply")
-async def human_reply(
-    session_id: str, 
-    body: HumanReplyRequest,
-    admin_id: str = "admin1"  # In real implementation, get from JWT
-):
-    """Send human reply to a session"""
-    
-    # Check if admin is assigned (you might want to implement assignment logic)
-    assigned = await SessionManager.get_assigned_admin(session_id)
-    if assigned and assigned != admin_id:
-        raise HTTPException(status_code=403, detail="Not authorized to reply")
-    
-    # Add message to history
-    message_data = {
-        "sender": "human",
-        "text": body.text,
-        "timestamp": SessionManager.get_current_timestamp()
-    }
-    
-    await SessionManager.append_message(session_id, "human", body.text)
-    
-    # Publish message via WebSocket
-    await publish_message_created(session_id, message_data)
-    
-    # Optional: Send via WhatsApp too
-    # You can integrate with your WhatsApp service here
-    
-    return {"status": "ok"}
 
 @router.post("/sessions/{session_id}/takeover")
 async def handle_as_human(
     session_id: str,
-    admin_id: str = "admin1"  # In real implementation, get from JWT  
+    admin_id: str = "admin1"
 ):
-    """Take over a session and mark it under human control"""
+    """Take over session and mark it under human control"""
     
-    # Assign human and update status
     await SessionManager.assign_human(session_id, admin_id)
-    
-    # Add system message
-    system_message = "One of our staff will contact you via WhatsApp: +94 77 912 3456"
-    await SessionManager.append_message(session_id, "system", system_message)
-    
-    # Get customer number for notification
+
+    system_message = "Our staff will contact you via WhatsApp: +0114785236"
     customer_number = await SessionManager.get_session_customer(session_id)
-    
-    # Publish WebSocket updates
+
+    await SessionManager.append_message(session_id, "agent", system_message)
+
     await publish_session_update(session_id, "under-human-control", system_message)
     await publish_message_created(session_id, {
-        "sender": "system", 
+        "sender": "agent",
         "text": system_message,
         "timestamp": SessionManager.get_current_timestamp()
     })
     await publish_counts_update()
-    
-    # Send email notification about takeover
-    await EmailNotificationService.notify_session_taken_over(
-        session_id, admin_id, customer_number
-    )
-    
+
     return {"status": "ok", "message": "Session now under human control"}
 
-@router.post("/sessions/{session_id}/reply-as-human")
+@router.post("/sessions/{session_id}/reply")
 async def reply_as_human(
     session_id: str,
     body: HumanReplyRequest,
     admin_id: str = "admin1"
 ):
-    """Reply as human but keep agent active for future messages"""
+    """Reply as human"""
     
-    # Add human message
+    await SessionManager.assign_human(session_id, admin_id)  
+
+    customer_number = await SessionManager.get_session_customer(session_id)
+    
+    await send_whatsapp_message(customer_number, body.text)
+    await SessionManager.append_message(session_id, "human", body.text)
+
     message_data = {
         "sender": "human",
         "text": body.text,
         "timestamp": SessionManager.get_current_timestamp()
     }
-    
-    await SessionManager.append_message(session_id, "human", body.text)
-    
-    # Publish message via WebSocket
+
+    await publish_session_update(session_id, "under-human-control", body.text)
     await publish_message_created(session_id, message_data)
-    await publish_session_update(session_id, None, body.text)  # Update preview without changing status
-    
+
     return {"status": "ok", "message": "Human reply sent"}
+
 
 @router.get("/sessions/{session_id}/status")
 async def get_session_status(session_id: str):

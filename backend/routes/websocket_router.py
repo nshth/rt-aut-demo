@@ -1,18 +1,31 @@
 import uuid
 import json
+import os
+import jwt
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, HTTPException, Depends
 from backend.service.websocket_manager import websocket_manager
 import logging
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 router = APIRouter()
 
-# Simple JWT verification (you should use proper JWT validation)
-def verify_admin_token(token: str) -> bool:
-    """Verify admin JWT token - implement proper JWT validation"""
-    # Placeholder - implement proper JWT verification
-    return token and len(token) > 10
+JWT_SECRET = os.getenv("JWT_SECRET")
 
+def verify_admin_token(token: str) -> bool:
+    if token == "demo-admin-token-12345":
+        print("✅ Demo token accepted")
+        return True
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        print("✅ JWT payload:", payload)
+        return payload.get("role") == "admin"
+    except Exception as e:
+        print("❌ JWT error:", e)
+        return False
+   
 @router.websocket("/ws/hitl")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     """WebSocket endpoint for HITL dashboard"""

@@ -1,6 +1,7 @@
 # backend/main.py
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from backend.routes import check_stock, create_invoice, get_sku, update_stock, whatsapp_webhook, hitl_router
 from backend.routes.websocket_router import router as websocket_router
@@ -12,7 +13,7 @@ app = FastAPI(title="HITL Dashboard API", version="1.0.0")
 # CORS middleware for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # Add your frontend URL
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000", "http://127.0.0.1:8000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -28,7 +29,20 @@ app.include_router(hitl_router.router)
 app.include_router(websocket_router)
 
 # Serve static files for the HITL dashboard
-app.mount("/hitl", StaticFiles(directory="frontend", html=True), name="hitl")
+@app.get("/hitl/")
+async def serve_dashboard():
+    """Serve the main dashboard"""
+    return FileResponse("frontend/index.html")
+
+@app.get("/hitl/{path:path}")
+async def serve_static_files(path: str):
+    """Serve static files"""
+    from pathlib import Path
+    file_path = Path(f"frontend/{path}")
+    if file_path.exists() and file_path.is_file():
+        return FileResponse(file_path)
+    # Fallback to index.html for SPA routing
+    return FileResponse("frontend/index.html")
 
 @app.get("/")
 async def root():
@@ -37,6 +51,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 # Initialize WebSocket manager on startup
 from backend.service.websocket_manager import websocket_manager
