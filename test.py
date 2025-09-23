@@ -2,10 +2,8 @@ import asyncio
 import warnings
 from backend.service.whatsapp_service import WhatsAppService
 
-# --- Silencing deprecation warnings ---
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# --- CLI colors ---
 YELLOW = "\033[0;33m"
 GREEN = "\033[0;32m"
 WHITE = "\033[0;39m"
