@@ -1,4 +1,3 @@
-# backend/db/fetch_sku.py
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc
@@ -37,7 +36,7 @@ def fetch_sku(product_name_or_sku: str, db: Session) -> Optional[Dict[str, Any]]
             "in_stock": variant.in_stock
         }
 
-    # 2) Find product by name (partial, case-insensitive)
+    # 2) Find product by name
     product = db.query(Product).filter(Product.name.ilike(f"%{key}%")).first()
     if not product:
         return None

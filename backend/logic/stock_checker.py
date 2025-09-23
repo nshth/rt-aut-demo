@@ -1,4 +1,3 @@
-# backend/db/stockchecker.py
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -23,7 +22,7 @@ def get_product_stock_status(data: StockRequest, db: Session) -> Dict[str, Any]:
     """
     name_or_sku = data.productName.strip()
 
-    # --- 1) Try exact SKU match first ---
+    # 1) Try exact SKU match first
     variant = db.query(ProductVariant).filter(ProductVariant.sku == name_or_sku).first()
     if variant:
         return {
@@ -37,12 +36,12 @@ def get_product_stock_status(data: StockRequest, db: Session) -> Dict[str, Any]:
             "in_stock": variant.in_stock >= data.quantity
         }
 
-    # --- 2) Find product by name ---
+    # 2) Find product by name
     product = db.query(Product).filter(Product.name.ilike(f"%{name_or_sku}%")).first()
     if not product:
         return {"error": "Product not found"}
 
-    # --- 2a) If color/size not provided, return available options ---
+    # 2a) If color/size not provided, return available options
     if not getattr(data, "color", None) and not getattr(data, "size", None):
         variants = product.variants
         available_colors = list({v.color.name for v in variants if v.color})
@@ -56,7 +55,7 @@ def get_product_stock_status(data: StockRequest, db: Session) -> Dict[str, Any]:
             "variants_count": len(variants),
         }
 
-    # --- 2b) If color/size provided, find exact variant ---
+    # 2b) If color/size provided, find exact variant 
     q = db.query(ProductVariant).filter(ProductVariant.product_id == product.id)
     if getattr(data, "color", None):
         q = q.join(Color).filter(Color.name.ilike(f"%{data.color.strip()}%"))
@@ -75,7 +74,7 @@ def get_product_stock_status(data: StockRequest, db: Session) -> Dict[str, Any]:
             "in_stock": variant.in_stock >= data.quantity
         }
 
-    # --- 3) Fallback: aggregate all variants ---
+    # 3) Fallback: aggregate all variants
     variants = product.variants
     total_stock = sum(v.in_stock for v in variants) if variants else 0
     prices = [float(v.price) for v in variants if v.price is not None] if variants else []

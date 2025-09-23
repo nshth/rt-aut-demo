@@ -1,4 +1,3 @@
-# backend/service/session_manager.py (Updated)
 import os
 import asyncio
 from datetime import datetime

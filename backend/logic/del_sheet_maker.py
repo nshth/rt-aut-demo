@@ -1,4 +1,3 @@
-# backend/utils/delivery_sheet_maker.py
 import os
 from datetime import datetime
 from dotenv import load_dotenv
@@ -9,10 +8,8 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from backend.db.schema import InvoiceToolRequest
 
-# load env
 load_dotenv()
 
-# Scopes required
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets"
@@ -121,7 +118,7 @@ def make_delivery_sheet(data: InvoiceToolRequest) -> str:
             response = sheets_service.spreadsheets().batchUpdate(spreadsheetId=spreadsheet_id,
                                                                 body={"requests": [add_sheet_request]}).execute()
             new_sheet_id = response["replies"][0]["addSheet"]["properties"]["sheetId"]
-            # Optionally style header
+            #style header
             headers = [["Customer Name", "Contact", "Address", "Product", "Quantity", "Total Price"]]
             sheets_service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,

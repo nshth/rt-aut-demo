@@ -1,4 +1,3 @@
-# twilio send logic is comment out to test 
 import asyncio
 import os
 from dotenv import load_dotenv
@@ -22,27 +21,29 @@ def _wa(n: str) -> str:
 
 async def send_whatsapp_message(to_number: str, message: str) -> None:
     """Send WhatsApp message via Twilio API"""
-    return (message)
-    # print(f"Agent reply:{message}")
-    # url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-    # data = {
-    #     "From": _wa(TWILIO_WHATSAPP_NUMBER),
-    #     "To": _wa(to_number),
-    #     "Body": message,
-    # }
+    # return (message)
+    print(f"Agent reply:{message}")
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+    data = {
+        "From": _wa(TWILIO_WHATSAPP_NUMBER),
+        "To": _wa(to_number),
+        "Body": message,
+    }
     
-    # async with httpx.AsyncClient() as client:
-    #     resp = await client.post(
-    #         url, 
-    #         data=data, 
-    #         auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), 
-    #         timeout=30
-    #     )
-    #     try:
-    #         resp.raise_for_status()
-    #     except httpx.HTTPStatusError as e:
-    #         detail = resp.text[:500]
-    #         raise RuntimeError(f"Twilio send failed: {e} :: {detail}") from e
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            url, 
+            data=data, 
+            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN), 
+            timeout=30
+        )
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            detail = resp.text[:500]
+            raise RuntimeError(f"Twilio send failed: {e} :: {detail}") from e
+        
+    
 
 async def process_whatsapp_message(from_number: str, message: str) -> dict:
     """Process a single WhatsApp message using LangChain agent"""
@@ -79,12 +80,12 @@ async def process_whatsapp_message(from_number: str, message: str) -> dict:
         await publish_message_created(session_id, agent_message)
         await publish_session_update(session_id, status, output)
         
-        # return {
-        #     "status": "completed",
-        #     "session_id": session_id,
-        #     "response_sent": True,
-        #     "from_number": from_number
-        # }
+        return {
+            "status": "completed",
+            "session_id": session_id,
+            "response_sent": True,
+            "from_number": from_number
+        }
         
     except Exception as e:
         print(f"Agent error for {from_number}: {e}")

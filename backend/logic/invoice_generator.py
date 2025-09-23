@@ -1,4 +1,3 @@
-# backend/utils/invoice_generator.py
 import uuid
 from datetime import datetime
 from io import BytesIO
@@ -12,9 +11,9 @@ from typing import Optional
 from backend.db.schema import InvoiceToolRequest
 
 company_name = "NICK SriLanka."
-logo_path = "nick.png"  # keep logo in project root or provide absolute path
+logo_path = "nick.png"  # C:\Users\Rasha\Desktop\rt-aut-demo\nick.png
 
-tax_rate = 0.0  # percent as decimal (e.g. 0.05 for 5%)
+tax_rate = 0.0  
 
 def _format_currency(val: float) -> str:
     return f"LKR {val:,.2f}"
@@ -42,7 +41,7 @@ def generate_invoice_pdf(data: InvoiceToolRequest, SKU: str, Unit_price: float, 
     p = canvas.Canvas(buffer, pagesize=letter)
     width, height = letter  # (612, 792)
 
-    # Header / Company
+    # Header
     y = height - 0.75 * inch
     try:
         p.drawImage(logo_path, 0.6 * inch, y - 36, width=1.0*inch, height=1.0*inch, preserveAspectRatio=True, mask='auto')

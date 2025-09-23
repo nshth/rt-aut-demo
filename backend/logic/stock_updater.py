@@ -13,3 +13,5 @@ def update_product_stock(sku: str, quantity:int, db: Session):
 
     product.quantity_available -= quantity
     db.commit()
+
+    # Need to update
